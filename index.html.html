@@ -1,0 +1,1593 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>מבוך החרב - קוד פתוח עם Gemini AI</title>
+    <!-- Tailwind CSS לעיצוב הממשק -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Three.js לגרפיקה תלת-ממדית -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <!-- פונטים מ-Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Secular+One&family=Rubik:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Rubik', 'Secular One', sans-serif;
+            user-select: none;
+            overflow: hidden;
+            background-color: #0d0d13;
+        }
+        canvas {
+            display: block;
+            width: 100vw;
+            height: 100vh;
+        }
+        /* אפקט זוהר קסום לכפתור ה-AI */
+        .magic-glow {
+            box-shadow: 0 0 15px rgba(6, 182, 212, 0.4);
+            animation: pulse-glow 2s infinite alternate;
+        }
+        @keyframes pulse-glow {
+            0% { box-shadow: 0 0 5px rgba(6, 182, 212, 0.4); }
+            100% { box-shadow: 0 0 20px rgba(6, 182, 212, 0.8); }
+        }
+    </style>
+</head>
+<body class="relative text-white">
+
+    <!-- מסך בחירת דמות ופתיחה -->
+    <div id="startScreen" class="absolute inset-0 z-50 flex flex-col items-center justify-center bg-slate-950/95 p-4 text-center">
+        <div class="max-w-md w-full bg-slate-900 border border-amber-500/30 rounded-2xl p-8 shadow-2xl shadow-amber-500/10">
+            <h1 class="text-5xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-amber-400 via-orange-500 to-yellow-300 mb-2">מבוך החרב</h1>
+            <p class="text-sm text-slate-400 mb-8">משחק תפקידים תלת-ממדי מגוף ראשון בקוד פתוח בשילוב ✨ Gemini AI</p>
+            
+            <div class="mb-8">
+                <h3 class="text-xl font-bold mb-4 text-slate-200">בחר/י מגדר דמות:</h3>
+                <div class="grid grid-cols-2 gap-4">
+                    <button id="chooseBoy" onclick="selectGender('boy')" class="border-2 border-slate-700 bg-slate-800/50 hover:border-blue-500 p-4 rounded-xl flex flex-col items-center transition duration-300 transform hover:scale-105">
+                        <span class="text-4xl mb-2">👦</span>
+                        <span class="font-bold text-lg text-blue-400">בן</span>
+                        <span class="text-xs text-slate-400 mt-1">שרוול כחול ויד חסונה</span>
+                    </button>
+                    <button id="chooseGirl" onclick="selectGender('girl')" class="border-2 border-slate-700 bg-slate-800/50 hover:border-purple-500 p-4 rounded-xl flex flex-col items-center transition duration-300 transform hover:scale-105">
+                        <span class="text-4xl mb-2">👧</span>
+                        <span class="font-bold text-lg text-purple-400">בת</span>
+                        <span class="text-xs text-slate-400 mt-1">שרוול סגול ויד זריזה</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- הסבר על המקשים -->
+            <div class="text-right text-xs bg-slate-950/50 border border-slate-800 rounded-lg p-4 mb-6 leading-relaxed text-slate-300 space-y-1">
+                <div class="font-bold text-amber-400 text-sm mb-1">איך משחקים?</div>
+                <div>🚶 <strong>תנועה:</strong> מקשי W, A, S, D במקלדת.</div>
+                <div>⚔️ <strong>כיוון חרב:</strong> מקשי החצים (ימין, שמאל, למעלה, למטה).</div>
+                <div>🔥 <strong>התקפה:</strong> מקש רווח (Space) להנפת החרב.</div>
+                <div>👾 <strong>מטרה:</strong> עקבו אחר היצור המלווה הזוהר, הביסו 7 חיות בכל שלב כדי לעבור הלאה. היזהרו מהאש!</div>
+                <div class="text-cyan-400 font-bold mt-2">✨ חדש: השתמש/י בכפתור הצ'אט כדי להטיל לחשים חופשיים בעזרת בינה מלאכותית!</div>
+            </div>
+
+            <button id="startGameBtn" disabled class="w-full py-4 bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-extrabold text-xl rounded-xl shadow-lg transition duration-300" onclick="startGame()">
+                התחל במשחק
+            </button>
+        </div>
+    </div>
+
+    <!-- ממשק ה-HUD (תצוגה ראשית במהלך המשחק) -->
+    <div id="gameHud" class="hidden absolute inset-0 z-40 pointer-events-none flex flex-col justify-between p-6">
+        <!-- סרגל עליון -->
+        <div class="flex justify-between items-start w-full">
+            <!-- פרטי שלב ומטרות -->
+            <div class="bg-slate-900/90 border border-slate-700/50 px-5 py-3 rounded-xl pointer-events-auto shadow-lg">
+                <div class="text-xs text-slate-400 font-bold">התקדמות המבוך</div>
+                <div class="text-2xl font-black text-amber-400" id="levelDisplay">שלב 1 / 100</div>
+                <div class="text-sm mt-1 text-slate-200" id="monstersKilledDisplay">חיות שהובסו: 0 / 7</div>
+                <!-- מפתח / שער -->
+                <div id="gateStatusText" class="text-xs font-bold text-red-400 mt-1">🔒 השער נעול (חפש כפתור רצפה!)</div>
+            </div>
+
+            <!-- כפתורי AI, מטבעות וחנות שדרוגים -->
+            <div class="flex flex-col items-end gap-2">
+                <!-- מדד מטבעות -->
+                <div class="bg-slate-900/90 border border-slate-700/50 px-5 py-3 rounded-xl pointer-events-auto flex items-center gap-3 shadow-lg">
+                    <div class="text-right">
+                        <div class="text-xs text-slate-400 font-bold">מטבעות זהב</div>
+                        <div class="text-2xl font-black text-yellow-400" id="coinsDisplay">0 🟡</div>
+                    </div>
+                </div>
+
+                <!-- כפתור שיחה עם המלווה - מופעל AI -->
+                <button id="companionChatBtn" onclick="openCompanionChat()" class="pointer-events-auto bg-gradient-to-r from-cyan-600 to-teal-600 hover:from-cyan-500 hover:to-teal-500 border border-cyan-400/30 text-xs px-4 py-2.5 rounded-lg font-bold flex items-center gap-1.5 shadow-md transition transform hover:scale-105 active:scale-95 magic-glow">
+                    ✨ דבר עם המלווה
+                </button>
+
+                <!-- כפתור שדרוג חרב -->
+                <button id="upgradeBtn" onclick="openShop()" class="pointer-events-auto bg-gradient-to-r from-indigo-600 to-blue-700 hover:from-indigo-500 hover:to-blue-600 border border-indigo-400/30 text-xs px-4 py-2.5 rounded-lg font-bold flex items-center gap-1.5 shadow-md transition transform hover:scale-105 active:scale-95">
+                    ⚔️ שדרג חרב (100 מטבעות)
+                </button>
+            </div>
+        </div>
+
+        <!-- תצוגת הכיוון הנוכחי של החרב (עזר ויזואלי) -->
+        <div class="absolute left-6 top-1/2 -translate-y-1/2 flex flex-col items-center bg-slate-900/80 border border-slate-800 p-3 rounded-xl pointer-events-auto">
+            <span class="text-xs text-slate-400 mb-2 font-bold">מצב החרב</span>
+            <div class="grid grid-cols-3 gap-1 w-24 h-24">
+                <div></div>
+                <div id="dir-up" class="border border-slate-700 rounded flex items-center justify-center text-xs transition font-black text-slate-500">▲</div>
+                <div></div>
+                <div id="dir-left" class="border border-slate-700 rounded flex items-center justify-center text-xs transition font-black text-slate-500">◀</div>
+                <div id="dir-center" class="bg-slate-800 rounded flex items-center justify-center text-[10px] text-amber-500 font-bold">⚔️</div>
+                <div id="dir-right" class="border border-slate-700 rounded flex items-center justify-center text-xs transition font-black text-slate-500">▶</div>
+                <div></div>
+                <div id="dir-down" class="border border-slate-700 rounded flex items-center justify-center text-xs transition font-black text-slate-500">▼</div>
+            </div>
+            <span class="text-[10px] text-slate-500 mt-2">הזז עם החצים במקלדת</span>
+        </div>
+
+        <!-- סרגל תחתון: חיים ומידע חרב -->
+        <div class="flex justify-between items-end w-full">
+            <!-- מד חיים -->
+            <div class="bg-slate-900/90 border border-slate-700/50 px-5 py-3 rounded-xl pointer-events-auto shadow-lg">
+                <div class="text-xs text-slate-400 font-bold mb-1">בריאות השחקן</div>
+                <div class="flex gap-1.5 text-2xl" id="heartsContainer">
+                    ❤️ ❤️ ❤️ ❤️ ❤️
+                </div>
+            </div>
+
+            <!-- סוג החרב הנוכחית -->
+            <div class="bg-slate-900/90 border border-slate-700/50 px-5 py-3 rounded-xl pointer-events-auto shadow-lg text-left">
+                <div class="text-xs text-slate-400 font-bold">נשק נוכחי</div>
+                <div class="text-xl font-bold text-slate-200" id="swordNameDisplay">🗡️ חרב חלודה (רמה 1)</div>
+                <div class="text-xs text-emerald-400 font-medium" id="swordAbilityDisplay">נזק רגיל, טווח רגיל</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- צ'אט ולחשי קסם מבוסס AI עם המלווה (Overlay) -->
+    <div id="companionChatModal" class="hidden absolute inset-0 z-50 flex items-center justify-center bg-black/80 p-4">
+        <div class="max-w-md w-full bg-slate-900 border border-cyan-500/40 rounded-2xl p-6 text-right flex flex-col h-[500px]">
+            <div class="flex justify-between items-center mb-4 pb-2 border-b border-slate-800">
+                <button onclick="closeCompanionChat()" class="text-slate-400 hover:text-white text-2xl font-bold">✕</button>
+                <div class="flex items-center gap-2">
+                    <span class="text-xl">✨</span>
+                    <h2 class="text-xl font-black text-cyan-400">היצור המלווה הזוהר</h2>
+                </div>
+            </div>
+
+            <!-- תוכן ההודעות -->
+            <div id="chatHistory" class="flex-1 overflow-y-auto mb-4 space-y-3 p-2 bg-slate-950/60 rounded-xl text-sm leading-relaxed scrollbar-thin scrollbar-thumb-slate-800">
+                <div class="text-cyan-300 font-medium">
+                    המלווה הזוהר מרחף מולך וממתין שתדבר אליו. תוכל לבקש עזרה, לשאול על המבוך או לנסות להטיל לחש קסם יצירתי!
+                </div>
+            </div>
+
+            <!-- הצעות מהירות ללחשים / שאלות -->
+            <div class="grid grid-cols-2 gap-2 mb-4 text-xs font-bold">
+                <button onclick="quickMagicSpell('תרפא אותי בקסם האור הזוהר שלך')" class="p-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-lg text-slate-300 text-center transition">💖 לחש ריפוי מהיר</button>
+                <button onclick="quickMagicSpell('ברך אותי במזל וזהב של הרפתקנים')" class="p-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-lg text-slate-300 text-center transition">🟡 לחש מזל וזהב</button>
+                <button onclick="quickMagicSpell('שבור את החסימות ופתח לי את השער')" class="p-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-lg text-slate-300 text-center transition">🔓 לחש פתיחת שער</button>
+                <button onclick="quickMagicSpell('הקפא את יריבי המבוך והחלש אותם בקסם שלך')" class="p-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-lg text-slate-300 text-center transition">❄️ לחש הקפאת אויבים</button>
+            </div>
+
+            <!-- שורת קלט של שיחה -->
+            <div class="flex gap-2">
+                <button id="sendChatBtn" onclick="sendCustomSpell()" class="px-5 py-2.5 bg-gradient-to-r from-cyan-600 to-teal-600 hover:from-cyan-500 hover:to-teal-500 rounded-xl text-sm font-bold shadow-md transition transform active:scale-95 flex items-center justify-center min-w-[70px]">
+                    שלח ✨
+                </button>
+                <input id="chatInput" type="text" placeholder="כתוב משהו למלווה או הטל לחש..." class="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-4 py-2 text-white focus:outline-none focus:border-cyan-500 text-sm">
+            </div>
+
+            <!-- טיימר לצינון (Cooldown) -->
+            <div id="cooldownTimerDisplay" class="hidden text-center text-xs text-rose-400 font-bold mt-2">
+                צינון לחשים פעיל: יש להמתין עוד <span id="cooldownSeconds">45</span> שניות...
+            </div>
+        </div>
+    </div>
+
+    <!-- כפתורי שליטה מותאמים לניידים וטאבלטים (מופיעים רק במסכי מגע) -->
+    <div id="mobileControls" class="hidden absolute bottom-24 left-0 right-0 z-40 px-6 flex justify-between pointer-events-none">
+        <!-- ג'ויסטיק תנועה וירטואלי -->
+        <div class="w-32 h-32 bg-slate-900/60 rounded-full border-2 border-slate-700 flex items-center justify-center pointer-events-auto relative active:bg-slate-800/80" id="virtualJoystick">
+            <div class="w-12 h-12 bg-amber-500 rounded-full shadow-lg absolute transition-all duration-75" id="joystickKnob"></div>
+        </div>
+
+        <!-- לוח מקשים לחרב והתקפה -->
+        <div class="flex flex-col items-center gap-2 pointer-events-auto">
+            <div class="grid grid-cols-3 gap-2">
+                <div></div>
+                <button onclick="changeSwordDirection('up')" class="w-12 h-12 bg-slate-900/80 border border-slate-700 rounded-xl font-bold flex items-center justify-center active:bg-amber-600">▲</button>
+                <div></div>
+                <button onclick="changeSwordDirection('left')" class="w-12 h-12 bg-slate-900/80 border border-slate-700 rounded-xl font-bold flex items-center justify-center active:bg-amber-600">◀</button>
+                <button id="attackMobileBtn" onclick="triggerAttack()" class="w-12 h-12 bg-red-600 hover:bg-red-500 text-white rounded-xl font-black flex items-center justify-center shadow-lg transform active:scale-90">⚔️</button>
+                <button onclick="changeSwordDirection('right')" class="w-12 h-12 bg-slate-900/80 border border-slate-700 rounded-xl font-bold flex items-center justify-center active:bg-amber-600">▶</button>
+                <div></div>
+                <button onclick="changeSwordDirection('down')" class="w-12 h-12 bg-slate-900/80 border border-slate-700 rounded-xl font-bold flex items-center justify-center active:bg-amber-600">▼</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- חנות השדרוגים (Overlay) -->
+    <div id="shopModal" class="hidden absolute inset-0 z-50 flex items-center justify-center bg-black/80 p-4">
+        <div class="max-w-md w-full bg-slate-900 border border-indigo-500/40 rounded-2xl p-6 text-right">
+            <div class="flex justify-between items-center mb-6">
+                <button onclick="closeShop()" class="text-slate-400 hover:text-white text-2xl font-bold">✕</button>
+                <h2 class="text-2xl font-black text-indigo-400">נפחיית החרבות המלכותית</h2>
+            </div>
+
+            <p class="text-sm text-slate-300 mb-4">אסוף 100 מטבעות זהב כדי לרכוש את החרב החזקה הבאה!</p>
+            
+            <div class="space-y-3 mb-6">
+                <!-- רמה 2 -->
+                <div id="shopItem2" class="border border-slate-800 rounded-xl p-3 flex items-center justify-between bg-slate-950/40">
+                    <button id="buyBtn2" onclick="buyUpgrade(2)" class="px-4 py-2 bg-slate-800 text-slate-500 text-xs font-bold rounded-lg cursor-not-allowed">רכוש ב-100 🟡</button>
+                    <div>
+                        <div class="font-bold text-slate-200">🗡️ חרב פלדה (רמה 2)</div>
+                        <div class="text-[11px] text-slate-400">מגדילה את טווח הפגיעה במפלצות</div>
+                    </div>
+                </div>
+
+                <!-- רמה 3 -->
+                <div id="shopItem3" class="border border-slate-800 rounded-xl p-3 flex items-center justify-between bg-slate-950/40">
+                    <button id="buyBtn3" onclick="buyUpgrade(3)" class="px-4 py-2 bg-slate-800 text-slate-500 text-xs font-bold rounded-lg cursor-not-allowed">רכוש ב-100 🟡</button>
+                    <div>
+                        <div class="font-bold text-slate-200">⚔️ חרב מחוזקת (רמה 3)</div>
+                        <div class="text-[11px] text-slate-400">צריך רק 4 מכות במקום 5 כדי להביס חיה</div>
+                    </div>
+                </div>
+
+                <!-- רמה 4 -->
+                <div id="shopItem4" class="border border-slate-800 rounded-xl p-3 flex items-center justify-between bg-slate-950/40">
+                    <button id="buyBtn4" onclick="buyUpgrade(4)" class="px-4 py-2 bg-slate-800 text-slate-500 text-xs font-bold rounded-lg cursor-not-allowed">רכוש ב-100 🟡</button>
+                    <div>
+                        <div class="font-bold text-slate-200">🔥 חרב בוערת (רמה 4)</div>
+                        <div class="text-[11px] text-slate-400">מנטרלת את יריקת האש של החיה אם פוגעים בה בזמן!</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="text-left">
+                <button onclick="closeShop()" class="px-5 py-2.5 bg-slate-800 hover:bg-slate-700 rounded-lg text-sm font-bold">סגור חנות</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- מסך הודעות מרכזיות (מוות / מעבר שלב) -->
+    <div id="statusOverlay" class="hidden absolute inset-0 z-50 flex flex-col items-center justify-center bg-black/90 text-center p-6">
+        <div class="max-w-md w-full">
+            <div id="overlayEmoji" class="text-7xl mb-4">💀</div>
+            <h2 id="overlayTitle" class="text-4xl font-extrabold text-red-500 mb-3">הובסת במבוך!</h2>
+            <p id="overlayMessage" class="text-slate-300 text-lg mb-8 leading-relaxed">נפגעת 5 פעמים מכדורי אש וחזרת לשלב 1. החרב שלך אבדה.</p>
+            <button id="overlayActionBtn" onclick="restartFromDeath()" class="px-8 py-4 bg-gradient-to-r from-red-600 to-orange-600 hover:from-red-500 hover:to-orange-500 font-bold text-lg rounded-xl shadow-lg transition transform hover:scale-105">
+                נסה שוב מהתחלה
+            </button>
+        </div>
+    </div>
+
+    <!-- קנבס התלת מימד של המשחק -->
+    <div id="canvasContainer" class="w-full h-full"></div>
+
+    <script>
+        // --- משתני ניהול משחק וסטייט ---
+        let selectedGender = null;
+        let level = 1;
+        let coins = 0;
+        let hp = 5;
+        let swordLevel = 1;
+        let killedInLevel = 0;
+        let isDead = false;
+        const targetKillsPerLevel = 7;
+
+        // משתני AI לניהול לחשים וצינון קריאות API
+        const apiKey = ""; // מפתח ה-API של המשחק
+        let companionCooldownActive = false;
+        let companionCooldownEndTime = 0;
+
+        // מערכת קול מבוססת Web Audio API סינתטי (ללא קבצי שמע חיצוניים)
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        
+        function playSound(type) {
+            try {
+                if (audioCtx.state === 'suspended') {
+                    audioCtx.resume();
+                }
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+
+                if (type === 'hit') {
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(150, audioCtx.currentTime);
+                    osc.frequency.exponentialRampToValueAtTime(40, audioCtx.currentTime + 0.15);
+                    gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.15);
+                    osc.start();
+                    osc.stop(audioCtx.currentTime + 0.15);
+                } else if (type === 'slash') {
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(300, audioCtx.currentTime);
+                    osc.frequency.exponentialRampToValueAtTime(600, audioCtx.currentTime + 0.1);
+                    gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
+                    osc.start();
+                    osc.stop(audioCtx.currentTime + 0.1);
+                } else if (type === 'hurt') {
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(80, audioCtx.currentTime);
+                    osc.frequency.linearRampToValueAtTime(30, audioCtx.currentTime + 0.3);
+                    gain.gain.setValueAtTime(0.4, audioCtx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
+                    osc.start();
+                    osc.stop(audioCtx.currentTime + 0.3);
+                } else if (type === 'coin') {
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(987.77, audioCtx.currentTime); // B5
+                    osc.frequency.setValueAtTime(1318.51, audioCtx.currentTime + 0.08); // E6
+                    gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.25);
+                    osc.start();
+                    osc.stop(audioCtx.currentTime + 0.25);
+                } else if (type === 'upgrade') {
+                    osc.type = 'square';
+                    osc.frequency.setValueAtTime(523.25, audioCtx.currentTime); // C5
+                    osc.frequency.setValueAtTime(659.25, audioCtx.currentTime + 0.1); // E5
+                    osc.frequency.setValueAtTime(783.99, audioCtx.currentTime + 0.2); // G5
+                    osc.frequency.setValueAtTime(1046.50, audioCtx.currentTime + 0.3); // C6
+                    gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.5);
+                    osc.start();
+                    osc.stop(audioCtx.currentTime + 0.5);
+                } else if (type === 'win') {
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(440, audioCtx.currentTime);
+                    osc.frequency.setValueAtTime(554, audioCtx.currentTime + 0.15);
+                    osc.frequency.setValueAtTime(659, audioCtx.currentTime + 0.3);
+                    osc.frequency.setValueAtTime(880, audioCtx.currentTime + 0.45);
+                    gain.gain.setValueAtTime(0.25, audioCtx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.7);
+                    osc.start();
+                    osc.stop(audioCtx.currentTime + 0.7);
+                }
+            } catch (e) {
+                console.warn("שגיאה בהפעלת אפקט קול:", e);
+            }
+        }
+
+        // --- ניהול בחירת דמות ---
+        function selectGender(gender) {
+            selectedGender = gender;
+            document.getElementById('chooseBoy').classList.remove('border-blue-500', 'bg-blue-950/20');
+            document.getElementById('chooseGirl').classList.remove('border-purple-500', 'bg-purple-950/20');
+
+            if (gender === 'boy') {
+                document.getElementById('chooseBoy').classList.add('border-blue-500', 'bg-blue-950/20');
+            } else {
+                document.getElementById('chooseGirl').classList.add('border-purple-500', 'bg-purple-950/20');
+            }
+            document.getElementById('startGameBtn').removeAttribute('disabled');
+            playSound('coin');
+        }
+
+        // --- אתחול מנוע Three.js ומבנה המבוך ---
+        let scene, camera, renderer;
+        let walls = [];
+        let monsters = [];
+        let fireballs = [];
+        let floorButtons = [];
+        let gate = null;
+        let isGateOpen = false;
+        let companion = null;
+        let playerArm = null;
+        let playerSword = null;
+        let playerGroup = new THREE.Group(); // קבוצה שמחזיקה את המצלמה והחרב יחד
+
+        // סטייטים של המקלדת
+        const keys = { w: false, a: false, s: false, d: false };
+        let swordDir = 'center'; // למעלה, למטה, ימין, שמאל, מרכז
+        let isAttacking = false;
+        let attackTimer = 0;
+
+        // מידע על החרבות
+        const swordSpecs = {
+            1: { name: "🗡️ חרב חלודה (רמה 1)", ability: "נזק רגיל, טווח רגיל", hitsToKill: 5, color: 0x8b5a2b },
+            2: { name: "🗡️ חרב פלדה (רמה 2)", ability: "טווח מורחב פגיעה", hitsToKill: 5, color: 0xc0c0c0 },
+            3: { name: "⚔️ חרב מחוזקת (רמה 3)", ability: "צריך רק 4 מכות להכרעת חיה", hitsToKill: 4, color: 0xffd700 },
+            4: { name: "🔥 חרב בוערת (רמה 4)", ability: "יכולת מניעת/הדיפת כדורי אש עם החרב!", hitsToKill: 4, color: 0xff4500 }
+        };
+
+        // זיהוי מכשירי מגע
+        const isTouchDevice = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+        if (isTouchDevice) {
+            document.getElementById('mobileControls').classList.remove('hidden');
+        }
+
+        // תבנית המבוך
+        let mazeGrid = [];
+        let mazeSize = 12; // יגדל ככל שהשלבים יעלו
+
+        function initEngine() {
+            const container = document.getElementById('canvasContainer');
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x05050a);
+            scene.fog = new THREE.FogExp2(0x05050a, 0.15); // ערפל למראה מסתורי ומפחיד
+
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 100);
+            
+            // המצלמה היא חלק מקבוצת השחקן, מה שמאפשר להזיז את השחקן והחרב יחד בקלות
+            playerGroup.add(camera);
+            scene.add(playerGroup);
+
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.shadowMap.enabled = true;
+            container.appendChild(renderer.domElement);
+
+            // תאורה מקיפה
+            const ambientLight = new THREE.AmbientLight(0x111122, 1.2);
+            scene.add(ambientLight);
+
+            // פנס ראש קטן המחובר לשחקן
+            const playerLight = new THREE.PointLight(0xffaa44, 1.5, 12);
+            playerLight.position.set(0, 0, 0);
+            playerGroup.add(playerLight);
+
+            window.addEventListener('resize', onWindowResize, false);
+            setupInputListeners();
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        // --- האזנה למקשים ולמגע ---
+        function setupInputListeners() {
+            window.addEventListener('keydown', (e) => {
+                if (isDead) return;
+                const key = e.key.toLowerCase();
+                if (key === 'w') keys.w = true;
+                if (key === 's') keys.s = true;
+                if (key === 'a') keys.a = true;
+                if (key === 'd') keys.d = true;
+
+                // כיווני החרב באמצעות מקשי החצים
+                if (e.key === 'ArrowUp') changeSwordDirection('up');
+                if (e.key === 'ArrowDown') changeSwordDirection('down');
+                if (e.key === 'ArrowLeft') changeSwordDirection('left');
+                if (e.key === 'ArrowRight') changeSwordDirection('right');
+
+                if (e.key === ' ') {
+                    triggerAttack();
+                    e.preventDefault();
+                }
+            });
+
+            window.addEventListener('keyup', (e) => {
+                const key = e.key.toLowerCase();
+                if (key === 'w') keys.w = false;
+                if (key === 's') keys.s = false;
+                if (key === 'a') keys.a = false;
+                if (key === 'd') keys.d = false;
+            });
+
+            // ניווט ג'ויסטיק וירטואלי במסכי מגע
+            const joystick = document.getElementById('virtualJoystick');
+            const knob = document.getElementById('joystickKnob');
+            let joystickActive = false;
+            let startX = 0, startY = 0;
+
+            if (isTouchDevice) {
+                joystick.addEventListener('touchstart', (e) => {
+                    joystickActive = true;
+                    const touch = e.touches[0];
+                    startX = touch.clientX;
+                    startY = touch.clientY;
+                });
+
+                window.addEventListener('touchmove', (e) => {
+                    if (!joystickActive) return;
+                    const touch = e.touches[0];
+                    const diffX = touch.clientX - startX;
+                    const diffY = touch.clientY - startY;
+                    const dist = Math.min(Math.sqrt(diffX*diffX + diffY*diffY), 40);
+                    const angle = Math.atan2(diffY, diffX);
+
+                    const moveX = Math.cos(angle) * dist;
+                    const moveY = Math.sin(angle) * dist;
+
+                    knob.style.transform = `translate(${moveX}px, ${moveY}px)`;
+
+                    // תרגום לתנועת WASD
+                    keys.w = moveY < -15;
+                    keys.s = moveY > 15;
+                    keys.a = moveX < -15;
+                    keys.d = moveX > 15;
+                });
+
+                window.addEventListener('touchend', () => {
+                    joystickActive = false;
+                    knob.style.transform = `translate(0px, 0px)`;
+                    keys.w = keys.s = keys.a = keys.d = false;
+                });
+            }
+        }
+
+        // שינוי כיוון חרב (למעלה, למטה, ימין, שמאל)
+        function changeSwordDirection(dir) {
+            if (isDead) return;
+            swordDir = dir;
+            
+            // עדכון המדדים הוויזואליים ב-HUD
+            const dirs = ['up', 'down', 'left', 'right'];
+            dirs.forEach(d => {
+                const el = document.getElementById(`dir-${d}`);
+                if (d === dir) {
+                    el.classList.add('bg-amber-500', 'text-slate-900', 'border-amber-400');
+                    el.classList.remove('text-slate-500');
+                } else {
+                    el.classList.remove('bg-amber-500', 'text-slate-900', 'border-amber-400');
+                    el.classList.add('text-slate-500');
+                }
+            });
+
+            // הזזת דגם החרב בתלת מימד לפי הכיוון שנבחר
+            if (playerSword) {
+                let targetX = 0.3;
+                let targetY = -0.3;
+                let targetRotZ = 0;
+
+                if (dir === 'up') {
+                    targetX = 0;
+                    targetY = 0.1;
+                    targetRotZ = 0.3;
+                } else if (dir === 'down') {
+                    targetX = 0;
+                    targetY = -0.5;
+                    targetRotZ = -0.3;
+                } else if (dir === 'left') {
+                    targetX = -0.3;
+                    targetY = -0.2;
+                    targetRotZ = 0.7;
+                } else if (dir === 'right') {
+                    targetX = 0.4;
+                    targetY = -0.2;
+                    targetRotZ = -0.7;
+                }
+
+                playerSword.position.x = targetX;
+                playerSword.position.y = targetY;
+                playerSword.rotation.z = targetRotZ;
+            }
+        }
+
+        // ביצוע התקפה
+        function triggerAttack() {
+            if (isDead || isAttacking) return;
+            isAttacking = true;
+            attackTimer = 0;
+            playSound('slash');
+
+            // בדיקת פגיעה במפלצות
+            checkSwordHit();
+        }
+
+        // --- בניית ידו של השחקן והחרב בתלת מימד ---
+        function createPlayerWeapon() {
+            // הסרת נשק קיים במידה ויש
+            if (playerArm) playerGroup.remove(playerArm);
+
+            playerArm = new THREE.Group();
+
+            // יצירת היד (שרוול צבעוני לפי המגדר שנבחר)
+            const sleeveColor = selectedGender === 'boy' ? 0x1d4ed8 : 0x7e22ce; // כחול לבן, סגול לבת
+            const armGeo = new THREE.CylinderGeometry(0.04, 0.05, 0.4, 8);
+            const armMat = new THREE.MeshStandardMaterial({ color: sleeveColor, roughness: 0.8 });
+            const armMesh = new THREE.Mesh(armGeo, armMat);
+            armMesh.rotation.x = Math.PI / 2.5;
+            armMesh.position.set(0.25, -0.4, -0.3);
+            playerArm.add(armMesh);
+
+            // כף יד בצבע גוף
+            const handGeo = new THREE.BoxGeometry(0.06, 0.06, 0.08);
+            const handMat = new THREE.MeshStandardMaterial({ color: 0xffdbac, roughness: 0.6 });
+            const handMesh = new THREE.Mesh(handGeo, handMat);
+            handMesh.position.set(0.25, -0.32, -0.48);
+            playerArm.add(handMesh);
+
+            // החרב (להב וידית)
+            playerSword = new THREE.Group();
+            
+            // ידית החרב (עץ)
+            const hiltGeo = new THREE.CylinderGeometry(0.015, 0.015, 0.12, 8);
+            const hiltMat = new THREE.MeshStandardMaterial({ color: 0x5c4033 });
+            const hiltMesh = new THREE.Mesh(hiltGeo, hiltMat);
+            hiltMesh.rotation.x = Math.PI / 2;
+            playerSword.add(hiltMesh);
+
+            // מגן החרב (Crossguard)
+            const guardGeo = new THREE.BoxGeometry(0.12, 0.02, 0.02);
+            const guardMat = new THREE.MeshStandardMaterial({ color: 0x8a8a8a, metalness: 0.8 });
+            const guardMesh = new THREE.Mesh(guardGeo, guardMat);
+            guardMesh.position.y = 0.06;
+            playerSword.add(guardMesh);
+
+            // להב החרב (הצבע והאפקט משתנים בהתאם לרמה)
+            const swordColor = swordSpecs[swordLevel].color;
+            let bladeLength = swordLevel >= 2 ? 0.75 : 0.55; // חרב רמה 2 ומעלה ארוכה יותר
+            const bladeGeo = new THREE.BoxGeometry(0.04, bladeLength, 0.01);
+            
+            let bladeMat;
+            if (swordLevel === 4) {
+                // להב זוהר לחרב הבוערת
+                bladeMat = new THREE.MeshStandardMaterial({ 
+                    color: swordColor, 
+                    emissive: 0xff3300, 
+                    emissiveIntensity: 1.5,
+                    metalness: 0.5,
+                    roughness: 0.2
+                });
+            } else {
+                bladeMat = new THREE.MeshStandardMaterial({ 
+                    color: swordColor, 
+                    metalness: swordLevel >= 2 ? 0.9 : 0.3, 
+                    roughness: 0.3 
+                });
+            }
+            
+            const bladeMesh = new THREE.Mesh(bladeGeo, bladeMat);
+            bladeMesh.position.y = 0.06 + (bladeLength / 2);
+            playerSword.add(bladeMesh);
+
+            // מיקום החרב ביחס ליד השחקן
+            playerSword.position.set(0.25, -0.3, -0.5);
+            playerSword.rotation.x = -Math.PI / 4;
+            
+            playerArm.add(playerSword);
+            playerGroup.add(playerArm);
+
+            // עדכון הממשק
+            document.getElementById('swordNameDisplay').innerText = swordSpecs[swordLevel].name;
+            document.getElementById('swordAbilityDisplay').innerText = swordSpecs[swordLevel].ability;
+        }
+
+        // --- בניית המבוך התלת ממדי באופן פרוצדורלי ---
+        function buildMaze() {
+            // ניקוי המבוך הקיים
+            walls.forEach(w => scene.remove(w));
+            walls = [];
+            floorButtons.forEach(b => scene.remove(b));
+            floorButtons = [];
+            monsters.forEach(m => {
+                scene.remove(m.mesh);
+                m.fireballs.forEach(f => scene.remove(f));
+            });
+            monsters = [];
+            fireballs.forEach(f => scene.remove(f));
+            fireballs = [];
+
+            if (gate) {
+                scene.remove(gate);
+                gate = null;
+            }
+
+            // גודל המבוך עולה בהדרגה לפי השלב
+            mazeSize = Math.min(8 + Math.floor(level / 3), 22);
+
+            // יצירת מטריצת מבוך בסיסית (1 = קיר, 0 = שביל פנוי)
+            mazeGrid = [];
+            for (let x = 0; x < mazeSize; x++) {
+                mazeGrid[x] = [];
+                for (let z = 0; z < mazeSize; z++) {
+                    // גבולות חיצוניים הם תמיד קירות
+                    if (x === 0 || x === mazeSize - 1 || z === 0 || z === mazeSize - 1) {
+                        mazeGrid[x][z] = 1;
+                    } else {
+                        // קירות פנימיים אקראיים
+                        mazeGrid[x][z] = Math.random() < 0.35 ? 1 : 0;
+                    }
+                }
+            }
+
+            // פתיחת נתיב בטוח לשחקן בנקודת ההתחלה (1,1)
+            mazeGrid[1][1] = 0;
+            mazeGrid[1][2] = 0;
+            mazeGrid[2][1] = 0;
+
+            // בניית קירות המבוך בפועל
+            const wallGeo = new THREE.BoxGeometry(2, 3, 2);
+            const wallMat = new THREE.MeshStandardMaterial({ 
+                color: 0x1a2238, 
+                roughness: 0.9, 
+                metalness: 0.1 
+            });
+
+            const floorGeo = new THREE.PlaneGeometry(mazeSize * 2, mazeSize * 2);
+            const floorMat = new THREE.MeshStandardMaterial({ color: 0x0c0f1d, roughness: 0.8 });
+            const floorMesh = new THREE.Mesh(floorGeo, floorMat);
+            floorMesh.rotation.x = -Math.PI / 2;
+            floorMesh.position.set((mazeSize - 1), -1.5, (mazeSize - 1));
+            scene.add(floorMesh);
+
+            for (let x = 0; x < mazeSize; x++) {
+                for (let z = 0; z < mazeSize; z++) {
+                    if (mazeGrid[x][z] === 1) {
+                        const wall = new THREE.Mesh(wallGeo, wallMat);
+                        wall.position.set(x * 2, 0, z * 2);
+                        scene.add(wall);
+                        walls.push(wall);
+                    }
+                }
+            }
+
+            // מיקום השחקן בתחילת המבוך (1,1)
+            playerGroup.position.set(2, 0, 2);
+            playerGroup.rotation.y = 0;
+
+            // יצירת השער הראשי ביציאה של המבוך (תמיד בפינה המרוחקת)
+            let gateX = mazeSize - 2;
+            let gateZ = mazeSize - 2;
+            // נוודא שהדרך לשער מפונה
+            mazeGrid[gateX][gateZ] = 0;
+            mazeGrid[gateX - 1][gateZ] = 0;
+            mazeGrid[gateX][gateZ - 1] = 0;
+
+            const gateGeo = new THREE.BoxGeometry(2, 3, 0.4);
+            const gateMat = new THREE.MeshStandardMaterial({ color: 0x9b1c1c, metalness: 0.7, roughness: 0.3 });
+            gate = new THREE.Mesh(gateGeo, gateMat);
+            gate.position.set(gateX * 2, 0, gateZ * 2);
+            scene.add(gate);
+            isGateOpen = false;
+            document.getElementById('gateStatusText').innerText = "🔒 השער נעול (חפש כפתור רצפה!)";
+            document.getElementById('gateStatusText').className = "text-xs font-bold text-red-400 mt-1";
+
+            // יצירת כפתור רצפה לפתיחת השער
+            createFloorButton();
+
+            // יצירת היצור המלווה הזוהר
+            createCompanion();
+
+            // פיזור 7 חיות (מפלצות) ברחבי המבוך
+            spawnMonsters();
+        }
+
+        // --- יצירת כפתור הרצפה לפתיחת השער ---
+        function createFloorButton() {
+            let buttonPlaced = false;
+            while (!buttonPlaced) {
+                let rx = Math.floor(Math.random() * (mazeSize - 2)) + 1;
+                let rz = Math.floor(Math.random() * (mazeSize - 2)) + 1;
+                // מניעת הנחה בנקודת ההתחלה או היציאה
+                if (mazeGrid[rx][rz] === 0 && (rx > 3 || rz > 3) && (rx < mazeSize - 3)) {
+                    const btnBaseGeo = new THREE.BoxGeometry(1.2, 0.1, 1.2);
+                    const btnBaseMat = new THREE.MeshStandardMaterial({ color: 0x334155 });
+                    const btnBase = new THREE.Mesh(btnBaseGeo, btnBaseMat);
+                    btnBase.position.set(rx * 2, -1.45, rz * 2);
+                    scene.add(btnBase);
+
+                    const btnPadGeo = new THREE.CylinderGeometry(0.4, 0.4, 0.1, 16);
+                    const btnPadMat = new THREE.MeshStandardMaterial({ color: 0xef4444, emissive: 0x991b1b });
+                    const btnPad = new THREE.Mesh(btnPadGeo, btnPadMat);
+                    btnPad.position.set(rx * 2, -1.4, rz * 2);
+                    scene.add(btnPad);
+
+                    floorButtons.push({
+                        base: btnBase,
+                        pad: btnPad,
+                        gridX: rx,
+                        gridZ: rz,
+                        activated: false
+                    });
+                    buttonPlaced = true;
+                }
+            }
+        }
+
+        // --- יצירת היצור המלווה הזוהר (Guide) ---
+        function createCompanion() {
+            if (companion) scene.remove(companion);
+
+            companion = new THREE.Group();
+            
+            // גוף קטן וזוהר
+            const bodyGeo = new THREE.SphereGeometry(0.15, 16, 16);
+            const bodyMat = new THREE.MeshStandardMaterial({ 
+                color: 0x06b6d4, 
+                emissive: 0x06b6d4, 
+                emissiveIntensity: 2 
+            });
+            const bodyMesh = new THREE.Mesh(bodyGeo, bodyMat);
+            companion.add(bodyMesh);
+
+            // אור פליטה
+            const light = new THREE.PointLight(0x06b6d4, 1.5, 5);
+            companion.add(light);
+
+            // מיקום התחלתי ליד השחקן
+            companion.position.set(2, 0.2, 2.5);
+            scene.add(companion);
+        }
+
+        // --- יצירת האויבים (חיות יורקות אש) ---
+        function spawnMonsters() {
+            let spawned = 0;
+            const colors = [0xd97706, 0xdc2626, 0x7c3aed, 0x059669, 0x2563eb];
+
+            while (spawned < targetKillsPerLevel) {
+                let rx = Math.floor(Math.random() * (mazeSize - 2)) + 1;
+                let rz = Math.floor(Math.random() * (mazeSize - 2)) + 1;
+
+                // בדיקה שאין שם קיר והמיקום רחוק מספיק מההתחלה
+                if (mazeGrid[rx][rz] === 0 && (rx > 2 || rz > 2)) {
+                    // גודל החיה אקראי
+                    const scale = 0.5 + Math.random() * 1.0; 
+
+                    const monsterGroup = new THREE.Group();
+
+                    // גוף החיה (קוביה מעוגלת או צורת יצור פשוטה)
+                    const bodyGeo = new THREE.BoxGeometry(0.6 * scale, 0.6 * scale, 0.6 * scale);
+                    const monsterColor = colors[Math.floor(Math.random() * colors.length)];
+                    const bodyMat = new THREE.MeshStandardMaterial({ color: monsterColor, roughness: 0.5 });
+                    const bodyMesh = new THREE.Mesh(bodyGeo, bodyMat);
+                    bodyMesh.position.y = 0.3 * scale;
+                    monsterGroup.add(bodyMesh);
+
+                    // עין גדולה זוהרת המשנה כיוונים
+                    const eyeGeo = new THREE.SphereGeometry(0.12 * scale, 8, 8);
+                    const eyeMat = new THREE.MeshBasicMaterial({ color: 0xff0000 });
+                    const eyeMesh = new THREE.Mesh(eyeGeo, eyeMat);
+                    eyeMesh.position.set(0, 0.3 * scale, -0.3 * scale);
+                    monsterGroup.add(eyeMesh);
+
+                    // מחושים או קרניים קטנות
+                    const hornGeo = new THREE.ConeGeometry(0.08 * scale, 0.3 * scale, 4);
+                    const hornMeshLeft = new THREE.Mesh(hornGeo, bodyMat);
+                    hornMeshLeft.position.set(-0.2 * scale, 0.7 * scale, 0);
+                    hornMeshLeft.rotation.z = 0.2;
+                    const hornMeshRight = hornMeshLeft.clone();
+                    hornMeshRight.position.x = 0.2 * scale;
+                    hornMeshRight.rotation.z = -0.2;
+                    monsterGroup.add(hornMeshLeft);
+                    monsterGroup.add(hornMeshRight);
+
+                    // מגן הגנה כיווני (חיצים קטנים המצביעים על נקודת התורפה)
+                    const shieldIndicatorGeo = new THREE.ConeGeometry(0.15, 0.3, 4);
+                    const shieldIndicatorMat = new THREE.MeshBasicMaterial({ color: 0x10b981 });
+                    const shieldIndicator = new THREE.Mesh(shieldIndicatorGeo, shieldIndicatorMat);
+                    shieldIndicator.position.y = 0.9 * scale;
+                    monsterGroup.add(shieldIndicator);
+
+                    monsterGroup.position.set(rx * 2, -1.5, rz * 2);
+                    scene.add(monsterGroup);
+
+                    // הגדרת נקודת תורפה אקראית (אחד מארבעת הכיוונים)
+                    const directions = ['up', 'down', 'left', 'right'];
+                    const weakDirection = directions[Math.floor(Math.random() * directions.length)];
+
+                    monsters.push({
+                        mesh: monsterGroup,
+                        gridX: rx,
+                        gridZ: rz,
+                        scale: scale,
+                        maxHp: swordSpecs[swordLevel].hitsToKill, // מתאים את החיים לפי רמת החרב
+                        currentHp: swordSpecs[swordLevel].hitsToKill,
+                        weakDirection: weakDirection,
+                        lastSpitTime: Date.now() + Math.random() * 3000, // יריקה ראשונה בזמן רנדומלי קצר
+                        fireballs: [],
+                        indicator: shieldIndicator,
+                        color: monsterColor
+                    });
+
+                    spawned++;
+                }
+            }
+        }
+
+        // --- מנגנון בדיקת פגיעה של החרב במפלצות (Directional Hit Checking) ---
+        function checkSwordHit() {
+            // טווח הפגיעה משתנה בהתאם לשדרוג החרב (רמה 2 ומעלה נותנת טווח גדול יותר)
+            const attackRange = swordLevel >= 2 ? 2.5 : 1.7; 
+
+            monsters.forEach((monster, index) => {
+                const dist = playerGroup.position.distanceTo(monster.mesh.position);
+                
+                if (dist <= attackRange) {
+                    // בדיקה האם החרב מכוונת בדיוק לנקודת התורפה של המפלצת
+                    if (swordDir === monster.weakDirection) {
+                        monster.currentHp--;
+                        playSound('hit');
+
+                        // הבהוב אדום של המפלצת בעת קבלת נזק
+                        flashMonster(monster.mesh);
+
+                        // שינוי נקודת התורפה לאחר כל פגיעה
+                        const directions = ['up', 'down', 'left', 'right'];
+                        monster.weakDirection = directions[Math.floor(Math.random() * directions.length)];
+                        updateMonsterIndicator(monster);
+
+                        // בדיקה האם המפלצת הובסה
+                        if (monster.currentHp <= 0) {
+                            defeatMonster(monster, index);
+                        }
+                    } else {
+                        // החרב הונפה בכיוון לא נכון
+                        showFloatingText("הגנה חזקה! החלף כיוון חרב", 0xff5555);
+                    }
+                }
+            });
+        }
+
+        // עדכון צבע וכיוון החץ מעל המפלצת לפי נקודת התורפה שלה
+        function updateMonsterIndicator(monster) {
+            let rotZ = 0;
+            if (monster.weakDirection === 'up') rotZ = 0;
+            if (monster.weakDirection === 'down') rotZ = Math.PI;
+            if (monster.weakDirection === 'left') rotZ = Math.PI / 2;
+            if (monster.weakDirection === 'right') rotZ = -Math.PI / 2;
+            monster.indicator.rotation.z = rotZ;
+        }
+
+        function flashMonster(mesh) {
+            mesh.traverse((child) => {
+                if (child.isMesh) {
+                    const origColor = child.material.color.getHex();
+                    child.material.color.setHex(0xff0000);
+                    setTimeout(() => {
+                        child.material.color.setHex(origColor);
+                    }, 150);
+                }
+            });
+        }
+
+        // הבסת מפלצת, קבלת פרס ומטבעות
+        function defeatMonster(monster, index) {
+            playSound('coin');
+            scene.remove(monster.mesh);
+            monsters.splice(index, 1);
+
+            killedInLevel++;
+            coins += 5; // חיה מובסת מעניקה 5 מטבעות
+            updateHUD();
+
+            showFloatingText("+5 מטבעות", 0xfacc15);
+
+            // בדיקת פתיחת שער (נדרש להביס 7 מפלצות וללחוץ על הכפתור)
+            checkLevelProgress();
+        }
+
+        // הוספת טקסט תלת מימד צף להתרחשויות (מטבעות, חיים)
+        function showFloatingText(text, colorHex) {
+            // יצירת ממשק טקסט מהיר ב-DOM מעל מרכז המסך
+            const popup = document.createElement('div');
+            popup.className = "absolute top-1/3 left-1/2 -translate-x-1/2 bg-slate-900/90 border border-slate-700 px-4 py-2 rounded-lg text-sm font-bold shadow-xl transition-all duration-1000 transform -translate-y-4 opacity-100 pointer-events-none";
+            popup.style.color = `#${colorHex.toString(16)}`;
+            popup.innerText = text;
+            document.body.appendChild(popup);
+
+            setTimeout(() => {
+                popup.style.opacity = '0';
+                popup.style.transform = 'translate(-50%, -40px)';
+            }, 100);
+
+            setTimeout(() => {
+                popup.remove();
+            }, 1100);
+        }
+
+        // --- מנגנון בדיקת ההתקדמות ומעבר שלב ---
+        function checkLevelProgress() {
+            document.getElementById('monstersKilledDisplay').innerText = `חיות שהובסו: ${killedInLevel} / ${targetKillsPerLevel}`;
+            
+            if (killedInLevel >= targetKillsPerLevel && isGateOpen) {
+                // מעבר שלב מוצלח!
+                levelComplete();
+            }
+        }
+
+        function levelComplete() {
+            playSound('win');
+            level++;
+            coins += 4; // סיום מוצלח של שלב מעניק בונוס 4 מטבעות
+            killedInLevel = 0;
+            updateHUD();
+
+            // פתיחת מסך מעבר שלב מרשים
+            showStatusOverlay("🎉 שלב הושלם!", `כל הכבוד! סיימת את שלב ${level - 1}. זכית ב-4 מטבעות זהב בונוס!`, "המשך לשלב הבא", () => {
+                hideStatusOverlay();
+                buildMaze();
+                createPlayerWeapon();
+            });
+        }
+
+        // --- מנגנון תקיפה ויריקת כדורי אש מהמפלצות ---
+        function handleMonsterAttacks() {
+            const now = Date.now();
+            monsters.forEach(monster => {
+                // המפלצת יורקת כדור אש כל 5 שניות
+                if (now - monster.lastSpitTime >= 5000) {
+                    monster.lastSpitTime = now;
+                    spitFireball(monster);
+                }
+            });
+        }
+
+        function spitFireball(monster) {
+            // יצירת כדור אש
+            const fireGeo = new THREE.SphereGeometry(0.15, 8, 8);
+            const fireMat = new THREE.MeshBasicMaterial({ color: 0xff3300 });
+            const fireMesh = new THREE.Mesh(fireGeo, fireMat);
+            fireMesh.position.copy(monster.mesh.position);
+            fireMesh.position.y = -0.5; // בגובה העיניים של השחקן
+            scene.add(fireMesh);
+
+            // חישוב וקטור הכיוון אל השחקן
+            const dir = new THREE.Vector3();
+            dir.subVectors(playerGroup.position, monster.mesh.position).normalize();
+
+            // הוספה לרשימת כדורי האש של המשחק
+            fireballs.push({
+                mesh: fireMesh,
+                dir: dir,
+                spawnTime: Date.now()
+            });
+        }
+
+        // עדכון ותנועת כדורי האש
+        function updateFireballs() {
+            const now = Date.now();
+            for (let i = fireballs.length - 1; i >= 0; i--) {
+                const f = fireballs[i];
+                // תנועה מהירה קדימה
+                f.mesh.position.addScaledVector(f.dir, 0.08);
+
+                // מניעת כדורי אש אינסופיים (למשל מחיקה אחרי 5 שניות)
+                if (now - f.spawnTime > 5000) {
+                    scene.remove(f.mesh);
+                    fireballs.splice(i, 1);
+                    continue;
+                }
+
+                // בדיקת פגיעה בשחקן
+                const distToPlayer = f.mesh.position.distanceTo(playerGroup.position);
+                if (distToPlayer < 0.8) {
+                    scene.remove(f.mesh);
+                    fireballs.splice(i, 1);
+                    playerTakeDamage();
+                    continue;
+                }
+
+                // בדיקה של התנגשות בקירות המבוך (למחוק את כדור האש אם פגע בקיר)
+                let hitWall = false;
+                for (let j = 0; j < walls.length; j++) {
+                    const w = walls[j];
+                    if (f.mesh.position.distanceTo(w.position) < 1.2) {
+                        hitWall = true;
+                        break;
+                    }
+                }
+                if (hitWall) {
+                    scene.remove(f.mesh);
+                    fireballs.splice(i, 1);
+                }
+            }
+        }
+
+        // פגיעה בשחקן והורדת חיים
+        function playerTakeDamage() {
+            // אם לשחקן יש את החרב הבוערת (רמה 4) והוא מגן לכיוון הנכון - כדור האש מנוטרל!
+            if (swordLevel === 4 && isAttacking) {
+                playSound('hit');
+                showFloatingText("🛡️ כדור האש נחסם בהצלחה!", 0x60a5fa);
+                return;
+            }
+
+            hp--;
+            playSound('hurt');
+            updateHUD();
+            showFloatingText("-1 חיים!", 0xef4444);
+
+            // אפקט אדום מהיר על כל המסך בעת קבלת נזק
+            document.body.classList.add('bg-red-900/30');
+            setTimeout(() => {
+                document.body.classList.remove('bg-red-900/30');
+            }, 200);
+
+            if (hp <= 0) {
+                gameOver();
+            }
+        }
+
+        // מות השחקן - חזרה לשלב 1
+        function gameOver() {
+            isDead = true;
+            playSound('hurt');
+            showStatusOverlay("💀 המשחק נגמר!", `הובסת על ידי יצורי המבוך! נזקקת ל-5 נקודות חיים אך נפגעת יותר מדי. ההתקדמות שלך נמחקה לחלוטין וחזרת לשלב 1.`, "נסה שוב מהתחלה", restartFromDeath);
+        }
+
+        function restartFromDeath() {
+            level = 1;
+            coins = 0;
+            hp = 5;
+            swordLevel = 1;
+            killedInLevel = 0;
+            isDead = false;
+
+            hideStatusOverlay();
+            updateHUD();
+            buildMaze();
+            createPlayerWeapon();
+        }
+
+        // --- עדכון ממשק המשתמש (HUD) ---
+        function updateHUD() {
+            document.getElementById('levelDisplay').innerText = `שלב ${level} / 100`;
+            document.getElementById('monstersKilledDisplay').innerText = `חיות שהובסו: ${killedInLevel} / ${targetKillsPerLevel}`;
+            document.getElementById('coinsDisplay').innerText = `${coins} 🟡`;
+
+            // הצגת הלבבות (חיים)
+            const heartsContainer = document.getElementById('heartsContainer');
+            heartsContainer.innerHTML = '';
+            for (let i = 0; i < 5; i++) {
+                if (i < hp) {
+                    heartsContainer.innerHTML += '❤️ ';
+                } else {
+                    heartsContainer.innerHTML += '🖤 ';
+                }
+            }
+
+            // צביעת כפתור השדרוג אם יש מספיק כסף (100 מטבעות)
+            const upgradeBtn = document.getElementById('upgradeBtn');
+            if (coins >= 100 && swordLevel < 4) {
+                upgradeBtn.classList.remove('from-indigo-600', 'to-blue-700');
+                upgradeBtn.classList.add('from-amber-500', 'to-yellow-500', 'animate-pulse', 'text-slate-950');
+            } else {
+                upgradeBtn.classList.add('from-indigo-600', 'to-blue-700');
+                upgradeBtn.classList.remove('from-amber-500', 'to-yellow-500', 'animate-pulse', 'text-slate-950');
+            }
+        }
+
+        // --- מנגנון ניווט של היצור המלווה (Companion Guide AI) ---
+        function updateCompanion() {
+            if (!companion || monsters.length === 0) return;
+
+            // מציאת החיה הקרובה ביותר
+            let closestMonster = null;
+            let minDist = Infinity;
+            monsters.forEach(m => {
+                const d = playerGroup.position.distanceTo(m.mesh.position);
+                if (d < minDist) {
+                    minDist = d;
+                    closestMonster = m;
+                }
+            });
+
+            if (closestMonster) {
+                // תנועה רכה של המלווה לכיוון החיה הקרובה ביותר
+                const targetPos = closestMonster.mesh.position.clone();
+                targetPos.y += 0.5; // מרחף קצת מעל הרצפה
+
+                // ניווט המלווה במבוך (צעד קטן בכל פריים לכיוון המטרה)
+                companion.position.lerp(targetPos, 0.02);
+
+                // אפקט ריחוף עדין למעלה ולמטה
+                companion.position.y += Math.sin(Date.now() * 0.005) * 0.005;
+            }
+        }
+
+        // --- מנגנון תנועה חופשית תלת מימדית מבוסס התנגשות קירות ---
+        function handlePlayerMovement() {
+            if (isDead) return;
+
+            const speed = 0.07;
+            const moveVector = new THREE.Vector3();
+
+            // קבלת וקטור כיוון של המצלמה (כיוון ההסתכלות)
+            const direction = new THREE.Vector3();
+            camera.getWorldDirection(direction);
+            direction.y = 0; // השחקן זז רק במישור הרצפה
+            direction.normalize();
+
+            // תנועה ימינה ושמאלה (וקטור ניצב)
+            const sideVector = new THREE.Vector3(-direction.z, 0, direction.x).normalize();
+
+            if (keys.w) moveVector.add(direction);
+            if (keys.s) moveVector.sub(direction);
+            if (keys.a) moveVector.sub(sideVector);
+            if (keys.d) moveVector.add(sideVector);
+
+            if (moveVector.lengthSq() > 0) {
+                moveVector.normalize().multiplyScalar(speed);
+
+                // שמירת המיקום הנוכחי לצורך שחזור אם יש התנגשות בקיר
+                const prevX = playerGroup.position.x;
+                const prevZ = playerGroup.position.z;
+
+                // ניסיון ביצוע תנועה
+                playerGroup.position.x += moveVector.x;
+                playerGroup.position.z += moveVector.z;
+
+                // בדיקת התנגשויות בקירות המבוך (מנגנון חסימת מעבר בקירות)
+                let colX = Math.floor((playerGroup.position.x + 1) / 2);
+                let colZ = Math.floor((playerGroup.position.z + 1) / 2);
+
+                // מניעת יציאה מגבולות המבוך
+                if (colX < 0 || colX >= mazeSize || colZ < 0 || colZ >= mazeSize || mazeGrid[colX][colZ] === 1) {
+                    // החזרת המיקום הקודם כדי שלא ייכנס לקיר
+                    playerGroup.position.x = prevX;
+                    playerGroup.position.z = prevZ;
+                }
+
+                // בדיקת התנגשות בשער הסגור
+                if (!isGateOpen) {
+                    const gateDist = playerGroup.position.distanceTo(gate.position);
+                    if (gateDist < 1.3) {
+                        playerGroup.position.x = prevX;
+                        playerGroup.position.z = prevZ;
+                    }
+                } else {
+                    // אם השער פתוח והשחקן הגיע אליו - ניצחון ועולים שלב!
+                    const gateDist = playerGroup.position.distanceTo(gate.position);
+                    if (gateDist < 1.0) {
+                        levelComplete();
+                    }
+                }
+
+                // בדיקת דריכה על כפתור הרצפה לפתיחת השער
+                floorButtons.forEach(btn => {
+                    if (!btn.activated) {
+                        const distToBtn = playerGroup.position.distanceTo(btn.base.position);
+                        if (distToBtn < 1.0) {
+                            activateFloorButton(btn);
+                        }
+                    }
+                });
+            }
+        }
+
+        // פונקציית הפעלת כפתור פתיחת השער
+        function activateFloorButton(btn) {
+            btn.activated = true;
+            btn.pad.position.y -= 0.08; // כפתור נלחץ פיזית
+            btn.pad.material.color.setHex(0x10b981); // הופך לירוק זוהר
+            btn.pad.material.emissive.setHex(0x064e3b);
+            playSound('win');
+            
+            isGateOpen = true;
+            document.getElementById('gateStatusText').innerText = "🔓 השער פתוח! היכנס דרכו לסיום השלב";
+            document.getElementById('gateStatusText').className = "text-xs font-bold text-emerald-400 mt-1";
+            scene.remove(gate); // הסרת חסימת השער במבוך התלת ממדי
+            showFloatingText("🔓 השער נפתח בהצלחה!", 0x10b981);
+        }
+
+        // --- אנימציית התקפה והנפת החרב ---
+        function animateWeaponSwing() {
+            if (isAttacking) {
+                attackTimer += 0.15;
+                if (attackTimer < Math.PI) {
+                    // תנועת חצי עיגול של החרב קדימה ואחורה
+                    playerArm.position.z = -Math.sin(attackTimer) * 0.4;
+                    playerArm.rotation.x = -Math.sin(attackTimer) * 0.5;
+                } else {
+                    // סיום ההתקפה
+                    isAttacking = false;
+                    playerArm.position.z = 0;
+                    playerArm.rotation.x = 0;
+                }
+            }
+        }
+
+        // --- פונקציות הניהול של חנות השדרוגים ---
+        function openShop() {
+            document.getElementById('shopModal').classList.remove('hidden');
+            
+            // עדכון כפתורי הרכישה בהתאם למטבעות הזמינים ולרמה הנוכחית
+            for (let i = 2; i <= 4; i++) {
+                const buyBtn = document.getElementById(`buyBtn${i}`);
+                if (swordLevel >= i) {
+                    buyBtn.innerText = "נרכש ✔️";
+                    buyBtn.className = "px-4 py-2 bg-emerald-600/30 text-emerald-400 text-xs font-bold rounded-lg cursor-not-allowed";
+                    buyBtn.disabled = true;
+                } else if (swordLevel === i - 1 && coins >= 100) {
+                    buyBtn.innerText = "רכוש ב-100 🟡";
+                    buyBtn.className = "px-4 py-2 bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-bold rounded-lg shadow-md cursor-pointer transform hover:scale-105 active:scale-95 transition";
+                    buyBtn.disabled = false;
+                } else {
+                    buyBtn.innerText = "נעול (רכוש רמה קודמת)";
+                    if (swordLevel === i - 1 && coins < 100) {
+                        buyBtn.innerText = "חסר זהב (100 🟡)";
+                    }
+                    buyBtn.className = "px-4 py-2 bg-slate-800 text-slate-500 text-xs font-bold rounded-lg cursor-not-allowed";
+                    buyBtn.disabled = true;
+                }
+            }
+        }
+
+        function closeShop() {
+            document.getElementById('shopModal').classList.add('hidden');
+        }
+
+        function buyUpgrade(targetLevel) {
+            if (coins >= 100 && swordLevel === targetLevel - 1) {
+                coins -= 100;
+                swordLevel = targetLevel;
+                playSound('upgrade');
+                updateHUD();
+                createPlayerWeapon();
+                closeShop();
+                showFloatingText("🗡️ חרב חדשה שודרגה בהצלחה!", 0x10b981);
+            }
+        }
+
+        // --- אינטגרציה מלאה של מערכת ה-AI והמלווה (Gemini API Integration) ---
+        
+        function openCompanionChat() {
+            document.getElementById('companionChatModal').classList.remove('hidden');
+            updateCooldownDisplay();
+        }
+
+        function closeCompanionChat() {
+            document.getElementById('companionChatModal').classList.add('hidden');
+        }
+
+        // מנגנון קריאה ל-API עם הגנת Exponential Backoff ו-Retry
+        async function callGeminiWithBackoff(userQuery, systemPrompt, responseSchema) {
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
+            
+            const payload = {
+                contents: [{ parts: [{ text: userQuery }] }],
+                systemInstruction: { parts: [{ text: systemPrompt }] },
+                generationConfig: {
+                    responseMimeType: "application/json",
+                    responseSchema: responseSchema
+                }
+            };
+
+            let delay = 1000;
+            const maxRetries = 5;
+
+            for (let i = 0; i < maxRetries; i++) {
+                try {
+                    const response = await fetch(url, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+
+                    if (response.ok) {
+                        const data = await response.json();
+                        const rawText = data.candidates?.[0]?.content?.parts?.[0]?.text;
+                        if (rawText) {
+                            return JSON.parse(rawText);
+                        }
+                    }
+                } catch (err) {
+                    // נכשל זמנית, נמשיך לניסיון הבא (סילנסי)
+                }
+                
+                // המתנה אקספוננציאלית (1s, 2s, 4s, 8s, 16s)
+                await new Promise(resolve => setTimeout(resolve, delay));
+                delay *= 2;
+            }
+
+            throw new Error("נכשלנו להתחבר לשרת הקסם של המלווה. אנא נסו להטיל את הלחש שנית מאוחר יותר.");
+        }
+
+        // הטלת לחש מהיר בלחיצה על כפתורי העזר
+        function quickMagicSpell(spellText) {
+            document.getElementById('chatInput').value = spellText;
+            sendCustomSpell();
+        }
+
+        // עיבוד ושליחה של הבקשה/לחש קסם ל-Gemini API
+        async function sendCustomSpell() {
+            const inputEl = document.getElementById('chatInput');
+            const queryText = inputEl.value.trim();
+            if (!queryText) return;
+
+            // בדיקת צינון
+            const now = Date.now();
+            if (companionCooldownActive && now < companionCooldownEndTime) {
+                showFloatingText("הקסם בצינון! המתן עוד קצת", 0xf43f5e);
+                return;
+            }
+
+            // עדכון היסטוריית השיחה להודעה הממתינה
+            appendChatMessage("אתה", queryText, "text-amber-400");
+            inputEl.value = "";
+            appendChatMessage("המלווה הזוהר", "מזמן את כוחות הקסם... ✨", "text-cyan-400 animate-pulse", "pending-msg");
+
+            // בניית ההנחיות הקסומות לבינה המלאכותית
+            const systemPrompt = `אתה יצור מלווה קסום וזוהר (The Guide) המלווה את השחקן במבוך חשוך ותלת ממדי. השחקן מנסה לשוחח איתך או להטיל לחש קסם יצירתי חופשי.
+השחקן כרגע בשלב ${level} מתוך 100.
+בריאות נוכחית: ${hp}/5.
+זהב שברשותו: ${coins} מטבעות.
+דרגת חרב נוכחית: ${swordLevel} מתוך 4.
+
+משימתך היא לענות לשחקן בעברית רהוטה, קסומה, ידידותית ומסתורית (עד 2-3 משפטים קצרים). 
+עליך לנתח את תוכן הבקשה שלו ולהפעיל השפעה חיובית בהתאם למה שביקש:
+- אם הוא מבקש עזרה, ריפוי, הגנה, או בריאות (למשל "רפא אותי", "לחש קסם ריפוי"): בחר ב-HEAL עם ערך ריפוי בין 1 ל-2.
+- אם הוא מבקש זהב, מטבעות, מזל או אוצר: בחר ב-COINS עם ערך מטבעות בין 5 ל-20.
+- אם הוא מבקש לגלות את השער, לפתוח את הדרך, לשבור מחסומים או לסיים את המבוך: בחר ב-REVEAL_GATE WITH ערך 1.
+- אם הוא מבקש לפגוע במפלצות, להקפיא אותן, לחש ברק או הלם: בחר ב-STUN_MONSTERS עם ערך 1.
+- אם מדובר בשיחה כללית בלבד (אומר שלום, שואל מי אתה): בחר ב-NONE עם ערך 0.
+
+ענה תמיד אך ורק בפורמט JSON תקין על פי הסכמה הבאה.`;
+
+            const responseSchema = {
+                type: "OBJECT",
+                properties: {
+                    companionReply: { type: "STRING", description: "תשובת היצור המלווה בעברית רהוטה וקסומה" },
+                    effect: { 
+                        type: "STRING", 
+                        enum: ["HEAL", "COINS", "REVEAL_GATE", "STUN_MONSTERS", "NONE"],
+                        description: "השפעת הקסם או השיחה על נתוני המשחק"
+                    },
+                    effectValue: { type: "NUMBER", description: "ערך ההשפעה (מספר לבבות ריפוי, מטבעות זהב או מצב מיוחד)" }
+                },
+                required: ["companionReply", "effect", "effectValue"]
+            };
+
+            // הפעלת קריאת Gemini
+            try {
+                const result = await callGeminiWithBackoff(queryText, systemPrompt, responseSchema);
+                
+                // הסרת הודעת ההמתנה
+                const pending = document.getElementById("pending-msg");
+                if (pending) pending.remove();
+
+                // הצגת תשובת המלווה ה-AI
+                appendChatMessage("המלווה הזוהר", result.companionReply, "text-cyan-300");
+
+                // הפעלת האפקט המכני במשחק בהתאם להחלטת ה-AI
+                applyAIEffect(result.effect, result.effectValue);
+
+                // הפעלת טיימר צינון של 45 שניות ללחשים
+                triggerCooldown(45);
+
+            } catch (error) {
+                const pending = document.getElementById("pending-msg");
+                if (pending) pending.remove();
+                appendChatMessage("המלווה הזוהר", error.message, "text-rose-400 font-bold");
+            }
+        }
+
+        // החלת האפקט שנקבע ע"י Gemini
+        function applyAIEffect(effect, value) {
+            if (isDead) return;
+
+            if (effect === "HEAL") {
+                const healAmount = Math.min(value, 2); // מגבלה של עד 2 חיים בריפוי יחיד
+                hp = Math.min(hp + healAmount, 5);
+                playSound('win');
+                updateHUD();
+                showFloatingText(`💖 המלווה ריפא אותך ב-${healAmount} חיים!`, 0x10b981);
+            } 
+            else if (effect === "COINS") {
+                const coinsAmount = Math.min(value, 20); // הגבלת בונוס מטבעות מקסימלי
+                coins += coinsAmount;
+                playSound('coin');
+                updateHUD();
+                showFloatingText(`🟡 קיבלת ${coinsAmount} מטבעות מזל!`, 0xfacc15);
+            } 
+            else if (effect === "REVEAL_GATE") {
+                if (!isGateOpen) {
+                    isGateOpen = true;
+                    document.getElementById('gateStatusText').innerText = "🔓 השער פתוח! היכנס דרכו לסיום השלב";
+                    document.getElementById('gateStatusText').className = "text-xs font-bold text-emerald-400 mt-1";
+                    if (gate) scene.remove(gate);
+                    playSound('win');
+                    showFloatingText("🔓 המלווה השתמש בקסמו ופתח את השער!", 0x38bdf8);
+                } else {
+                    showFloatingText("השער כבר פתוח! המשך קדימה", 0x38bdf8);
+                }
+            } 
+            else if (effect === "STUN_MONSTERS") {
+                if (monsters.length > 0) {
+                    monsters.forEach(m => {
+                        m.currentHp = Math.max(m.currentHp - 1, 1); // החלשת האויבים (נשאר להם מינימום 1 נקודת חיים)
+                        flashMonster(m.mesh);
+                    });
+                    playSound('hit');
+                    showFloatingText("❄️ המפלצות נחלשו מקסם ההלם!", 0xa78bfa);
+                } else {
+                    showFloatingText("אין מפלצות בסביבה כרגע", 0x38bdf8);
+                }
+            }
+        }
+
+        // הפעלת טיימר הצינון
+        function triggerCooldown(seconds) {
+            companionCooldownActive = true;
+            companionCooldownEndTime = Date.now() + (seconds * 1000);
+            updateCooldownDisplay();
+        }
+
+        function updateCooldownDisplay() {
+            const display = document.getElementById('cooldownTimerDisplay');
+            const secondsText = document.getElementById('cooldownSeconds');
+            
+            const interval = setInterval(() => {
+                const timeLeft = Math.ceil((companionCooldownEndTime - Date.now()) / 1000);
+                if (timeLeft <= 0) {
+                    companionCooldownActive = false;
+                    display.classList.add('hidden');
+                    clearInterval(interval);
+                } else {
+                    display.classList.remove('hidden');
+                    secondsText.innerText = timeLeft;
+                }
+            }, 1000);
+        }
+
+        // הוספת הודעה ללוג הצ'אט
+        function appendChatMessage(sender, text, colorClass, elementId = "") {
+            const chatHistory = document.getElementById('chatHistory');
+            const msgNode = document.createElement('div');
+            if (elementId) msgNode.id = elementId;
+            msgNode.className = "p-2 bg-slate-900 border border-slate-800 rounded-lg";
+            msgNode.innerHTML = `<span class="font-bold ${colorClass}">${sender}:</span> <span class="text-slate-200">${text}</span>`;
+            chatHistory.appendChild(msgNode);
+            chatHistory.scrollTop = chatHistory.scrollHeight; // גלילה אוטומטית למטה
+        }
+
+        // --- ניהול מודלים והודעות פופאפ (Overlay) ---
+        let activeOverlayCallback = null;
+
+        function showStatusOverlay(title, msg, btnText, callback) {
+            document.getElementById('overlayTitle').innerText = title;
+            document.getElementById('overlayMessage').innerText = msg;
+            document.getElementById('overlayActionBtn').innerText = btnText;
+            document.getElementById('statusOverlay').classList.remove('hidden');
+            activeOverlayCallback = callback;
+        }
+
+        function hideStatusOverlay() {
+            document.getElementById('statusOverlay').classList.add('hidden');
+        }
+
+        document.getElementById('overlayActionBtn').onclick = function() {
+            if (activeOverlayCallback) activeOverlayCallback();
+        };
+
+        // --- התחלת המשחק (Start Gameplay) ---
+        function startGame() {
+            // העלמת מסך הפתיחה והצגת הממשק
+            document.getElementById('startScreen').classList.add('hidden');
+            document.getElementById('gameHud').classList.remove('hidden');
+
+            playSound('win');
+            
+            // אתחול המנוע ובניית השלב הראשון
+            initEngine();
+            buildMaze();
+            createPlayerWeapon();
+
+            // הפעלת לולאת הרינדור הראשית
+            animateLoop();
+        }
+
+        // --- לולאת המשחק המרכזית (Game Loop) ---
+        function animateLoop() {
+            requestAnimationFrame(animateLoop);
+
+            // עדכון תנועות השחקן והתקפות
+            handlePlayerMovement();
+            animateWeaponSwing();
+
+            // עדכוני מפלצות ואש
+            handleMonsterAttacks();
+            updateFireballs();
+            updateCompanion();
+
+            // רענון האינדיקטורים של נקודות התורפה של המפלצות שיפנו תמיד למצלמה
+            monsters.forEach(m => {
+                m.mesh.lookAt(playerGroup.position.x, m.mesh.position.y, playerGroup.position.z);
+                updateMonsterIndicator(m);
+            });
+
+            // רינדור התמונה מחדש
+            renderer.render(scene, camera);
+        }
+    </script>
+</body>
+</html>
